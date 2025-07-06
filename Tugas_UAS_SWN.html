@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Grafik Sensor</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+  <style>
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+    }
+
+    html, body {
+        width: 100%;
+        height: 100%;
+        background-color: #f0f0f0;
+        font-family: sans-serif;
+    }
+
+    #chartContainer {
+        width: 100%;
+        height: 60vh; /* Ubah ini kalau mau lebih tinggi atau pendek */
+        padding: 10px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+    }
+
+    #grafikSensor {
+        width: 900px !important;
+        height: 1080px !important;
+    }
+
+    h3 {
+        margin: 10px;
+        font-size: 1.2em;
+    }
+  </style>
+</head>
+<body>
+  <div id="chartContainer">
+    <h3 id="judul">Memuat Grafik...</h3>
+    <canvas id="grafikSensor"></canvas>
+  </div>
+  <script>
+    // === 1. Konfigurasi Firebase ===
+    const firebaseConfig = {
+        apiKey: "AIzaSyBmLa4h-swaHzhdpHE1vFbj1JmfqjbPEqI",
+        authDomain: "project-swn-b1bfb.firebaseapp.com",
+        databaseURL: "https://project-swn-b1bfb-default-rtdb.firebaseio.com",
+        projectId: "project-swn-b1bfb",
+        storageBucket: "project-swn-b1bfb.firebasestorage.app",
+        messagingSenderId: "926222954309",
+        appId: "1:926222954309:web:c1bc3ef21b83fcd3e7d82c"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    // === 2. Ambil jenis sensor dari URL (?jenis=suhu, ph, kelembaban) ===
+    const jenisParam = new URLSearchParams(window.location.search).get("jenis") || "Suhu";
+    const jenis = 
+    jenisParam.toLowerCase() === "suhu" ? "Suhu" :
+    jenisParam.toLowerCase() === "kelembaban" ? "Kelembaban" :
+    jenisParam.toLowerCase() === "ph" ? "pH" :
+    "Suhu"; // default jika tidak cocok
+    document.getElementById("judul").innerText = "Grafik " + jenis;
+
+    // === 3. Inisialisasi grafik kosong ===
+    const ctx = document.getElementById('grafikSensor').getContext('2d');
+    const chart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: [],
+        datasets: [{
+          label: jenis.toUpperCase(),
+          data: [],
+          borderColor: 'blue',
+          backgroundColor: 'rgba(0,0,255,0.1)',
+          borderWidth: 2,
+          tension: 0.3,
+          pointRadius: 3,
+          fill: true
+        }]
+      },
+      options: {
+        responsive: true,
+        animation: false,
+        scales: {
+          y: {
+            beginAtZero: true,
+            title: { display: true, text: 'Nilai Sensor' }
+          },
+          x: {
+            title: { display: true, text: 'Waktu (detik)' }
+          }
+        }
+      }
+    });
+
+    // === 4. Update data tiap 5 detik, hanya tampil 8 data terakhir ===
+    let detik = 0;
+    function updateChart(nilai) {
+      chart.data.labels.push(`${detik}s`);
+      chart.data.datasets[0].data.push(nilai);
+      detik += 5;
+
+      if (chart.data.labels.length > 8) {
+        chart.data.labels.shift();
+        chart.data.datasets[0].data.shift();
+      }
+
+      chart.update();
+    }
+
+    setInterval(() => {
+      db.ref("Sensor/" + jenis + "/latest").get().then(snapshot => {
+        const value = snapshot.val();
+        if (value !== null) {
+          updateChart(value);
+        }
+      });
+    }, 5000);
+  </script>
+</body>
+</html>
